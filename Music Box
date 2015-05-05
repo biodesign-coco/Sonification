@@ -1,0 +1,328 @@
+#include <math.h>
+#include <stdlib.h>
+#include "Counter.h"
+#include "pitches.h"
+
+// Pins used
+//----------LED-------------------------------
+int redLed = 9;         // Digital pin 9
+int greenLed = 10;      // Digital pin 10
+int blueLed = 11;       // Digital pin 11
+//----------PIEZO-----------------------------
+int noiseMaker = 8;     // Digital pin 8
+//----------LTF-CONVERTER---------------------
+int TSL235R = 5;        // Digiral pin 5
+//----------BUTTONS---------------------------
+int button = A3;        // Analog pin 3
+int button2 = A4;       // Analog pin 4
+//----------POTENTIOMETER---------------------
+int musicSpeed = A2;    // Analog pin 2
+
+#define TIMER_LENGTH 3000
+
+// state variables
+#define IDLE 0
+#define COUNT 1
+int state = IDLE;
+
+// Variables used for the buttons
+int buttonstate = 0;
+int lastbuttonstate = 0;
+int buttonstate2 = 0;
+int lastbuttonstate2 = 0;
+//to avoid the 2 buttons to be activated at the same time
+bool b1 = 0; //if button1 is activated
+bool b2 = 0; //if button2 is activated
+
+// Counter function
+HardwareCounter hwc(TSL235R, TIMER_LENGTH);
+
+// Variable to change the speed of the music
+float frameRate   = 1.0f;      // speed of playing the sound
+float inputValue = 0;
+
+
+// Starts the counting
+void startCounting()
+{
+  // State change so we know that we've started counting
+  state = COUNT;
+
+  // Print that we've started counting
+  Serial.print("Start counting: ");
+
+  // Turn led on
+  //digitalWrite(pinLed, HIGH);
+
+  // Start the counter
+  hwc.start();
+  //start the musci to count
+  startMusicCounting();
+}
+
+//melody counting for first button
+int melody[] = {
+  NOTE_A3, NOTE_B3, NOTE_C4, NOTE_D4, NOTE_E4, NOTE_D4, NOTE_C4, NOTE_B3, NOTE_C4, NOTE_D4, NOTE_E4, NOTE_D4, NOTE_C4, NOTE_D4, NOTE_E4, NOTE_D4, NOTE_C4, NOTE_B3, NOTE_C4, NOTE_B3, NOTE_A3, NOTE_B3, NOTE_G3, NOTE_A3, 0, NOTE_A3, NOTE_B3, NOTE_C4, NOTE_B3, NOTE_C4, NOTE_D4, NOTE_C4, NOTE_D4, NOTE_E4, NOTE_D4, NOTE_C4, NOTE_A3, NOTE_A3, NOTE_B3, NOTE_C4, NOTE_D4, NOTE_E4, NOTE_F4, NOTE_A3, NOTE_D4, NOTE_C4, NOTE_D4, NOTE_B3, NOTE_A3, NOTE_C4, NOTE_B3, NOTE_A3
+};
+// note durations: 4 = quarter note, 8 = eighth note, etc.:
+int noteDurations[] = {
+  2, 2, 3, 1, 2, 2, 2, 2, 2, 2, 2, 4, 1, 1, 3, 1, 2, 2, 2, 2, 3, 1, 2, 2, 8, 1, 1, 3, 1, 2, 2, 2, 2, 3, 1, 2, 4, 1, 1, 2, 2, 2, 2, 2, 2, 3, 1, 2, 4, 1, 1, 6
+};
+
+//melody counting for second button
+int melody2[] = {
+  NOTE_E7, NOTE_E7, 0, NOTE_E7, 0, NOTE_C7, NOTE_E7, 0, NOTE_G7, 0, 0, 0, NOTE_G6, 0, 0, 0, NOTE_C7, 0, 0, NOTE_G6, 0, 0, NOTE_E6, 0, 0, NOTE_A6, 0, NOTE_B6, 0, NOTE_AS6, NOTE_A6, 0, NOTE_G6, NOTE_E7, NOTE_G7, NOTE_A7, 0, NOTE_F7, NOTE_G7,
+  0, NOTE_E7, 0, NOTE_C7, NOTE_D7, NOTE_B6, 0, 0, NOTE_C7, 0, 0, NOTE_G6, 0, 0, NOTE_E6, 0, 0, NOTE_A6, 0, NOTE_B6, 0, NOTE_AS6, NOTE_A6, 0, NOTE_G6, NOTE_E7, NOTE_G7, NOTE_A7, 0, NOTE_F7, NOTE_G7, 0, NOTE_E7, 0, NOTE_C7,
+  NOTE_D7, NOTE_B6, 0, 0
+};
+//Mario main them tempo
+int tempo2[] = {
+  12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 9, 9, 9, 12, 12, 12, 12,
+  12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 9, 9, 9, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+};
+
+void startMusicCounting()
+{
+  //turn LED white -> counting
+  setColor(255, 255, 255);
+  
+  int size = 0;
+  if (b1)
+  {
+    size = sizeof(melody) / sizeof(int);
+  }
+  if (b2)
+  {
+    size = sizeof(melody2) / sizeof(int);
+  }
+
+  for (int thisNote = 0; thisNote < size; thisNote++)
+  {
+    // read the input (Potentiometer) on analog pin 2
+    inputValue = analogRead(musicSpeed);
+
+    // calculate a value in the range of 0.5(fast) and 1.5(slow)
+    frameRate = 0.5f + ( inputValue / 1023 );
+
+    int noteDuration = 0;
+
+    if (b1)
+    {
+      noteDuration = noteDurations[thisNote] * 95;
+      tone(noiseMaker, melody[thisNote], noteDuration * frameRate);
+    }
+    if (b2)
+    {
+      // to calculate the note duration, take one second divided by the note type.
+      //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+      noteDuration = 1000 / tempo2[thisNote];
+      tone(noiseMaker, melody2[thisNote], noteDuration * frameRate);
+    }
+
+    // to distinguish the notes, set a minimum time between them.
+    // the note's duration + 30% seems to work well:
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes * frameRate);
+
+    // stop the tone playing:
+    noTone(noiseMaker);
+  }
+}
+
+//melody itsok
+int itsok[] = {NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4};
+int DurationItsok[] = {4, 8, 8, 4, 4, 4, 4, 4 };
+
+//Underworld melody
+int underworld_melody[] = {
+  NOTE_C4, NOTE_C5, NOTE_A3, NOTE_A4, NOTE_AS3, NOTE_AS4, 0, 0, NOTE_C4, NOTE_C5, NOTE_A3, NOTE_A4, NOTE_AS3, NOTE_AS4, 0, 0, NOTE_F3, NOTE_F4, NOTE_D3, NOTE_D4,
+  NOTE_DS3, NOTE_DS4, 0, 0, NOTE_F3, NOTE_F4, NOTE_D3, NOTE_D4, NOTE_DS3, NOTE_DS4, 0, 0, NOTE_DS4, NOTE_CS4, NOTE_D4, NOTE_CS4, NOTE_DS4, NOTE_DS4, NOTE_GS3,
+  NOTE_G3, NOTE_CS4, NOTE_C4, NOTE_FS4, NOTE_F4, NOTE_E3, NOTE_AS4, NOTE_A4, NOTE_GS4, NOTE_DS4, NOTE_B3, NOTE_AS3, NOTE_A3, NOTE_GS3, 0, 0, 0
+};
+//Underwolrd tempo
+int underworld_tempo[] = {
+  12, 12, 12, 12, 12, 12, 6, 3, 12, 12, 12, 12, 12, 12, 6, 3, 12, 12, 12, 12, 12, 12, 6, 3, 12, 12, 12, 12,
+  12, 12, 6, 6, 18, 18, 18, 6, 6, 6, 6, 6, 6, 18, 18, 18, 18, 18, 18, 10, 10, 10, 10, 10, 10, 3, 3, 3
+};
+
+void sweetMusic()
+{
+  //turn LED green
+  setColor(0, 255, 0);
+
+  int size = 0;
+  if (b1)
+  {
+    size = sizeof(itsok) / sizeof(int);
+  }
+  if (b2)
+  {
+    size = sizeof(underworld_melody) / sizeof(int);
+  }
+  for (int thisNote = 0; thisNote < size; thisNote++)
+  {
+    // to calculate the note duration, take one second divided by the note type.
+    //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+    int noteDuration = 0;
+    if (b1)
+    {
+      noteDuration = 1000 / DurationItsok[thisNote];
+      tone(noiseMaker, itsok[thisNote], noteDuration);
+    }
+    if (b2)
+    {
+      noteDuration = 1000 / underworld_tempo[thisNote];
+      tone(noiseMaker, underworld_melody[thisNote], noteDuration);
+    }
+    // to distinguish the notes, set a minimum time between them.
+    // the note's duration + 30% seems to work well:
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+
+    noTone(noiseMaker);
+  }
+  //turn LED off
+  setColor(0, 0, 0);
+}
+
+//melody alerte
+
+int alerte[] = {NOTE_G5, NOTE_G5, NOTE_G5, NOTE_A5, NOTE_G5};
+int DurationAlert[] = {8, 8, 8, 8, 8};
+
+int melody3[] = {
+  NOTE_D4, NOTE_F3, NOTE_B3, NOTE_F3, NOTE_D4, NOTE_GS3, NOTE_B3, NOTE_GS3, NOTE_G4, NOTE_B3, NOTE_E4, NOTE_B3, NOTE_E4, NOTE_A3, NOTE_CS4, NOTE_A3,
+  NOTE_D4, NOTE_FS4, NOTE_B3, NOTE_FS4, NOTE_D4, NOTE_GS3, NOTE_B3, NOTE_GS3, NOTE_G4, NOTE_B3, NOTE_E4, NOTE_B3, NOTE_E4, NOTE_A3, NOTE_CS4, NOTE_A3
+};
+
+void darkMusic()
+{
+  //turn LED red
+  setColor(0, 0, 255);
+
+  // variation of red
+  /*for (int i=0; i<=255; i++)
+  {
+   setColor(i,0,0);
+  }*/
+
+  int size = 0;
+  //different music depending on which button has been activated
+  if (b1)
+  {
+    size = sizeof(alerte) / sizeof(int);
+  }
+  if (b2)
+  {
+    size = sizeof(melody3) / sizeof(int);
+  }
+  for (int thisNote = 0; thisNote < size; thisNote++)
+  {
+    int noteDuration = 0;
+    if (b1)
+    {
+      noteDuration = 1000 / DurationAlert[thisNote];
+      tone(noiseMaker, alerte[thisNote], noteDuration);
+    }
+    if (b2)
+    {
+      noteDuration = 1000 / 8;
+      tone(noiseMaker, melody3[thisNote], noteDuration);
+    }
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+
+    noTone(noiseMaker);
+  }
+  //turn LED off
+  setColor(0, 0, 0);
+}
+
+// Method to set the different color of the LED
+void setColor(int red, int green, int blue)
+{
+  analogWrite(redLed, red);
+  analogWrite(greenLed, green);
+  analogWrite(blueLed, blue);
+}
+
+// Setup of the system
+void setup()
+{
+  Serial.begin(9600);
+  //print to test
+  Serial.println("Testing a Music Box:");
+  Serial.println("-------------------------");
+  Serial.println();
+
+  // Prepare the light to frequency
+  pinMode(TSL235R, INPUT);
+
+  // Prepare pin LED
+  pinMode(redLed, OUTPUT);
+  pinMode(greenLed, OUTPUT);
+  pinMode(blueLed, OUTPUT);
+
+  // Prepare the buttons
+  pinMode(button, INPUT);
+  digitalWrite(button, HIGH);
+
+  pinMode(button2, INPUT);
+  digitalWrite(button2, HIGH);
+}
+
+
+// Loop function that is continuously executed
+void loop()
+{
+  // to tell that it is ready to count -> LED is blue
+  setColor(255, 0, 0);  // blue
+
+  // Read the state of the button
+  buttonstate = digitalRead(button);
+
+  buttonstate2 = digitalRead(button2);
+
+  // If the state of the button has changed, if it isn't already counting and if the other button has not been activated, we start counting
+  if (buttonstate != lastbuttonstate && state == IDLE && !b2)
+  {
+    //turn the led off
+    setColor(0, 0, 0);
+
+    b1 = true; //to avoid that the 2 buttons get activated at the same time
+    startCounting();
+  }
+  if (buttonstate2 != lastbuttonstate2 && state == IDLE && !b1)
+  {
+    //turn the led off
+    setColor(0, 0, 0);
+
+    b2 = true;
+    startCounting();
+  }
+
+  // If the counter for has started, we print its result
+  if (state == COUNT && hwc.available())
+  {
+    // Get count result
+    long count = hwc.count();
+
+    // Print result
+    Serial.print("Count: ");
+    Serial.println(count);
+
+    // depending on the number of counts -> different music
+    if (count < 900000)
+    {
+      sweetMusic();
+    } else
+    {
+      darkMusic();
+    }
+
+    // Indicate that the next step is turbulance quantification
+    state = IDLE;
+    b1 = false;
+    b2 = false;
+  }
+}
